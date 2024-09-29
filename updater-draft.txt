@@ -1,11 +1,11 @@
 include shared-gdrive("updater-definitions.arr", "19r6H4ZtedGt2ARtWQo1HflN0Ok8vxixJ")
 
 provide:
-find-cursor, get-node-val, update, to-tree, left, right, up, down, is-Cursor,
-    type Cursor,
-    end
+  find-cursor, get-node-val, update, to-tree, left, right, up, down, is-Cursor,
+  type Cursor,
+end
 
-    include my-gdrive("updater-common.arr")
+include my-gdrive("updater-common.arr")
 # END HEADER
 # DO NOT CHANGE ANYTHING ABOVE THIS LINE
 #
@@ -14,112 +14,192 @@ find-cursor, get-node-val, update, to-tree, left, right, up, down, is-Cursor,
 # You will come up with a Cursor definition, which may have more than
 # one variant, and can have whatever fields you need
 
+#|
+   data Index:
+  | index(down :: Number, right :: Number)
+   end
 
-    data Cursor<A>: 
-# NO INDEX
-# cursor(around :: Tree<A>, below :: Tree<A>)
-# WITH INDEX
-| cursor(around :: Tree<A>, below :: Tree<A>)
-    end
+   data Cursor<A>:
+  | cursor(down :: Number, right :: Number)
+   end
 
+   fun find-cursor-helper<A>(trees :: List<Tree<A>>, pred :: (A -> Boolean), dwn :: Number, rt :: Number) -> Option<Cursor<A>>:
+  cases (List<Tree<A>>) trees:
+    | empty => none
+    | link(f, r) =>
+      cases (Tree<A>) f:
+        | mt => none
+        | node(fv, fc) =>
+          ask:
+            | pred(fv) then: some(cursor(dwn, rt))
+            | otherwise:
+              c = find-cursor-helper(fc, pred, dwn + 1, rt)
+              cases (Option<Cursor<A>>) c:
+                | none => find-cursor-helper(r, pred, dwn, rt + 1)
+                | some(cpos) => some(cpos)
+              end
+          end
+      end
+  end
+   end
+
+   fun find-cursor<A>(tree :: Tree<A>, pred :: (A -> Boolean)) -> Cursor<A>:
+  c =  find-cursor-helper([list: tree], pred, 0, 0)
+  cases (Option<Cursor<A>>) c:
+    | none => raise("Could not find cursor")
+    | some(cc) => cc
+  end
+   where:
+  find-cursor(mt, is-2) raises "Could"
+  find-cursor(tree-1, is-2) is cursor(1, 0)
+  find-cursor(tree-2root, is-2) is cursor(0, 0)
+  find-cursor(tree-3root, is-2) raises "Could"
+  find-cursor(tree-2, is-2) is cursor(2, 1)
+   end
+|#
+data Cursor<A>: 
+    # NO INDEX
+    # cursor(around :: Tree<A>, below :: Tree<A>)
+    # WITH INDEX
+  | cursor(above-left :: Tree<A>, right :: List<Tree<A>>, below :: Tree<A>)
+end
 
 #|
-    find-cur(bloew, around, pred):
+  find-cur(bloew, around, pred):
 
-        check:
-not => node(f, find-around(f.children, pred))
-    pred => 
+   check:
+   not => node(f, find-around(f.children, pred))
+   pred => 
 
-    cursor:
-above: above: children: 
-left left left left, pred 
+   cursor:
+   above: above: children: 
+   left left left left, pred 
 
 
-[left, above, right]
+   [left, above, right]
 |#
+
+
+
+
+fun find-all-in-list<A>(childs :: List<Tree<A>>, pred :: (A -> Boolean), above-left :: Tree<A>, current-parent :: Tree<A>) -> Option<Cursor<A>>:
+  cases (List<Tree<A>>) childs:
+    | empty => none
+    | link(f, r) =>
+      cases (Tree<A>) f:
+        | mt => none
+        | node(v, c) =>
+          ask:
+            | pred(v) then:
+              some(cursor(above-left ,r, f)) # No the whole tree yet
+            | otherwise:
+              new-node = node(current-parent.value, 
+                current-parent.children.append([list: node(v, empty)]))
+
+              s = find-all-in-list(c, pred, 
+                above-left, new-node)
+              cases (Option<Cursor<A>>) s:
+                | none =>
+                  find-all-in-list(r, pred, 
+                    node(above-left.value, 
+                      above-left.children.append(node(v, empty)), 
+                      current-parent))
+                | some(_) =>
+                  s
+              end
+          end
+      end
+  end
+where:
+
+  find-all-in-list(empty, is-2, node(-99, empty), node(-99, empty)) is none
+  find-all-in-list([list: tree-1], is-2 , node(-99, empty), node(-99,empty)) 
+    is some(cursor(node(1, empty), [list: node(3, empty)], node(2, empty)))
+  #find-below-in-list([list: subnode-1], is-2) is subnode-1
+end
+
 fun find-below-in-list<A>(childs :: List<Tree<A>>, pred :: (A -> Boolean)) -> Tree<A>:
-cases (List<Tree<A>>) childs:
-| empty => mt
-| link(f, r) =>
-cases (Tree<A>) f:
-| mt => mt
-| node(v, c) =>
-ask:
-| pred(v) then:
-f # No the whole tree yet
-| otherwise:
-s = find-below-in-list(c, pred)
-    cases (Tree<A>) s:
-    | mt =>
-find-below-in-list(r, pred)
-    | node(_, _) =>
-    s
-    end
-    end
-    end
-    end
-    where:
-    is-2 = {(x): x == 2 }
+  cases (List<Tree<A>>) childs:
+    | empty => mt
+    | link(f, r) =>
+      cases (Tree<A>) f:
+        | mt => mt
+        | node(v, c) =>
+          ask:
+            | pred(v) then:
+              f # No the whole tree yet
+            | otherwise:
+              s = find-below-in-list(c, pred)
+              cases (Tree<A>) s:
+                | mt =>
+                  find-below-in-list(r, pred)
+                | node(_, _) =>
+                  s
+              end
+          end
+      end
+  end
+where:
 
-    find-below-in-list(empty, is-2) is mt
-find-below-in-list([list: tree-1], is-2) is node(2, empty)
-    find-below-in-list([list: subnode-1], is-2) is subnode-1
-    end
+  find-below-in-list(empty, is-2) is mt
+  find-below-in-list([list: tree-1], is-2) is node(2, empty)
+  find-below-in-list([list: subnode-1], is-2) is subnode-1
+end
 
-    fun find-around-in-list<A>(childs :: List<Tree<A>>, pred):
-        childs.first
-        end
-        fun find-cursor<A>(tree :: Tree<A>, pred :: (A -> Boolean)) -> Cursor<A>:
-#|ask:
-        | pred(tree.value) then:
-cursor(find-around(tree, pred), tree)
+fun find-around-in-list<A>(childs :: List<Tree<A>>, pred):
+  childs.first
+end
+fun find-cursor<A>(tree :: Tree<A>, pred :: (A -> Boolean)) -> Cursor<A>:
+  #|ask:
+    | pred(tree.value) then:
+      cursor(find-around(tree, pred), tree)
     | otherwise:
-    b = find-below-in-list(tree.children, pred)
-cursor(find-around(b, pred), b)
-    end|#
-cursor(find-around-in-list([list: tree], pred),
-        find-below-in-list([list : tree], pred))
-    where:
-#predicate:
-    is-2 = lam(x): x == 2 end
+      b = find-below-in-list(tree.children, pred)
+      cursor(find-around(b, pred), b)
+  end|#
+  cursor(find-around-in-list([list: tree], pred),
+    find-below-in-list([list : tree], pred))
+where:
+  #predicate:
 
-                   find-cursor(mt-tree, is-2) raises "Could not find node matching predicate" 
-    find-cursor(tree-1, is-2) is 
-    cursor(
-            node(1, 
-                [list: node(3, empty)]),node(2, empty))
-    find-cursor(tree-2root, is-2) is
-cursor(mt, tree-2root)
-    find-cursor(tree-3root, is-2) raises "s"
-    find-cursor(tree-2, is-2) is
-cursor(node(1, [list: subnode-2]), subnode-1) 
-    end
+  find-cursor(mt-tree, is-2) raises "Could not find node matching predicate" 
+  find-cursor(tree-1, is-2) is 
+  cursor(
+    node(1, 
+      [list: node(3, empty)]),node(2, empty))
+  find-cursor(tree-2root, is-2) is
+  cursor(mt, tree-2root)
+  find-cursor(tree-3root, is-2) raises "s"
+  find-cursor(tree-2, is-2) is
+  cursor(node(1, [list: subnode-2]), subnode-1) 
+end
 
-    fun up<A>(cur :: Cursor<A>) -> Cursor<A>:
-    ...
-    end
 
-    fun left<A>(cur :: Cursor<A>) -> Cursor<A>:
-    ...
-    end
+fun up<A>(cur :: Cursor<A>) -> Cursor<A>:
+  ...
+end
 
-    fun right<A>(cur :: Cursor<A>) -> Cursor<A>:
-    ...
-    end
+fun left<A>(cur :: Cursor<A>) -> Cursor<A>:
+  ...
+end
 
-    fun down<A>(cur :: Cursor<A>, child-index :: Number ) -> Cursor<A>:
-    ...
-    end
+fun right<A>(cur :: Cursor<A>) -> Cursor<A>:
+  ...
+end
 
-    fun update<A>(cur :: Cursor<A>, func :: (Tree<A> -> Tree<A>)) -> Cursor<A>:
-    ...
-    end
+fun down<A>(cur :: Cursor<A>, child-index :: Number ) -> Cursor<A>:
+  ...
+end
 
-    fun to-tree<A>( cur :: Cursor<A> ) -> Tree<A>:
-    ...
-    end
+fun update<A>(cur :: Cursor<A>, func :: (Tree<A> -> Tree<A>)) -> Cursor<A>:
+  ...
+end
 
-    fun get-node-val<A>(cur :: Cursor<A>) -> Option<A>: 
-    ...
-    end
+fun to-tree<A>( cur :: Cursor<A> ) -> Tree<A>:
+  ...
+end
+
+fun get-node-val<A>(cur :: Cursor<A>) -> Option<A>: 
+  ...
+end
 
