@@ -1,0 +1,85 @@
+include shared-gdrive("updater-definitions.arr", "19r6H4ZtedGt2ARtWQo1HflN0Ok8vxixJ")
+
+provide:
+  find-cursor, get-node-val, update, to-tree, left, right, up, down, is-Cursor,
+  type Cursor,
+end
+
+include my-gdrive("updater-common.arr")
+# END HEADER
+# DO NOT CHANGE ANYTHING ABOVE THIS LINE
+#
+# You may write implementation-specific tests (e.g., of helper functions) in this file.
+
+# You will come up with a Cursor definition, which may have more than
+# one variant, and can have whatever fields you need
+
+
+data Cursor<A>: 
+    # NO INDEX
+    # cursor(around :: Tree<A>, below :: Tree<A>)
+    # WITH INDEX
+  | cursor(around :: Tree<A>, below :: Tree<A>)
+end
+
+fun find-cursor<A>(tree :: Tree<A>, pred :: (A -> Boolean)) -> Cursor<A>:
+  ...
+where:
+  #predicate:
+  is-2 = lam(x): x == 2 end
+  
+  mt-tree = mt
+  tree-1 = node(1, [list: node(2, empty)], 
+    [list: node(3, empty)])
+  tree-2root = node(2, empty)
+  tree-3root = node(3, empty)
+
+  subnode-1 = node(2,
+    [list: 
+      node(1, empty), node(2, empty), node(3, empty)])
+  subnode-2 = node(3,
+    [list: node(2, empty), node(4, empty)])
+    
+  tree-2 = node(1, 
+    [list: subnode-1, subnode-2])
+      
+  find-cursor(mt-tree, is-2) raises "Could not find node matching predicate" 
+  find-cursor(tree-1, is-2) is 
+  cursor(
+    node(1, 
+      [list: node(3, empty)], 
+      node(2, empty)))
+  find-cursor(tree-2root, is-2) is
+  cursor(mt, tree-2root)
+  find-cursor(tree-3root, is-2) raises ""
+  find-cursor(tree-2, is-2) is
+  cursor(node(1, [list: subnode-2]), subnode-1) 
+end
+
+fun up<A>(cur :: Cursor<A>) -> Cursor<A>:
+  ...
+end
+
+fun left<A>(cur :: Cursor<A>) -> Cursor<A>:
+  ...
+end
+
+fun right<A>(cur :: Cursor<A>) -> Cursor<A>:
+  ...
+end
+
+fun down<A>(cur :: Cursor<A>, child-index :: Number ) -> Cursor<A>:
+  ...
+end
+
+fun update<A>(cur :: Cursor<A>, func :: (Tree<A> -> Tree<A>)) -> Cursor<A>:
+  ...
+end
+
+fun to-tree<A>( cur :: Cursor<A> ) -> Tree<A>:
+  ...
+end
+
+fun get-node-val<A>(cur :: Cursor<A>) -> Option<A>: 
+  ...
+end
