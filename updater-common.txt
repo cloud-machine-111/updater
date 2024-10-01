@@ -1,0 +1,35 @@
+include shared-gdrive("updater-definitions.arr", "19r6H4ZtedGt2ARtWQo1HflN0Ok8vxixJ")
+
+provide: *, type * end
+# END HEADER
+# DO NOT CHANGE ANYTHING ABOVE THIS LINE
+#
+# Write data bindings here that you'll need for tests in both updater-code.arr and updater-tests.arr
+
+is-2 = {(x): x == 2 }
+
+
+mt-tree = mt
+
+tree-1 = node(1, 
+  [list: node(2, empty), node(3, empty)])
+
+tree-2root = node(2, empty)
+tree-3root = node(3, empty)
+
+subnode-2root = node(2,
+  [list: 
+    node(1, empty), node(2, empty), node(3, empty)])
+
+subnode-3root = node(3,
+  [list: node(2, empty), node(4, empty)])
+
+subnode-no-2 = node(5,
+  [list: node(3, [list: node(4, empty), node(10, [list: node(6, empty)])]),
+    node(50, [list: node(51, empty)])])
+
+tree-2 = node(1, 
+  [list: subnode-2root, subnode-3root])
+
+tree-3 = node(-99,
+  [list: subnode-no-2, subnode-2root, subnode-3root])

@@ -14,164 +14,94 @@ include my-gdrive("updater-common.arr")
 # You will come up with a Cursor definition, which may have more than
 # one variant, and can have whatever fields you need
 
-#|
-   data Index:
-  | index(down :: Number, right :: Number)
-   end
-
-   data Cursor<A>:
-  | cursor(down :: Number, right :: Number)
-   end
-
-   fun find-cursor-helper<A>(trees :: List<Tree<A>>, pred :: (A -> Boolean), dwn :: Number, rt :: Number) -> Option<Cursor<A>>:
-  cases (List<Tree<A>>) trees:
-    | empty => none
-    | link(f, r) =>
-      cases (Tree<A>) f:
-        | mt => none
-        | node(fv, fc) =>
-          ask:
-            | pred(fv) then: some(cursor(dwn, rt))
-            | otherwise:
-              c = find-cursor-helper(fc, pred, dwn + 1, rt)
-              cases (Option<Cursor<A>>) c:
-                | none => find-cursor-helper(r, pred, dwn, rt + 1)
-                | some(cpos) => some(cpos)
-              end
-          end
-      end
-  end
-   end
-
-   fun find-cursor<A>(tree :: Tree<A>, pred :: (A -> Boolean)) -> Cursor<A>:
-  c =  find-cursor-helper([list: tree], pred, 0, 0)
-  cases (Option<Cursor<A>>) c:
-    | none => raise("Could not find cursor")
-    | some(cc) => cc
-  end
-   where:
-  find-cursor(mt, is-2) raises "Could"
-  find-cursor(tree-1, is-2) is cursor(1, 0)
-  find-cursor(tree-2root, is-2) is cursor(0, 0)
-  find-cursor(tree-3root, is-2) raises "Could"
-  find-cursor(tree-2, is-2) is cursor(2, 1)
-   end
-|#
 data Cursor<A>: 
-    # NO INDEX
-    # cursor(around :: Tree<A>, below :: Tree<A>)
-    # WITH INDEX
-  | cursor(above-left :: Tree<A>, right :: List<Tree<A>>, below :: Tree<A>)
+  | cursor(above :: Tree<A>, below :: Tree<A>, around :: Tree<A>)
 end
 
-#|
-  find-cur(bloew, around, pred):
+empty-cursor = cursor(mt, mt, node(-99, empty))
 
-   check:
-   not => node(f, find-around(f.children, pred))
-   pred => 
-
-   cursor:
-   above: above: children: 
-   left left left left, pred 
-
-
-   [left, above, right]
-|#
-
-
-
-
-fun find-all-in-list<A>(childs :: List<Tree<A>>, pred :: (A -> Boolean), above-left :: Tree<A>, current-parent :: Tree<A>) -> Option<Cursor<A>>:
+fun find-all-in-list<A>(
+    childs :: List<Tree<A>>, 
+    pred :: (A -> Boolean), 
+    curr-parents :: List<Tree<A>>,
+    curr-lefties :: List<Tree<A>>)
+  -> {Tree<A>; List<Tree<A>>; List<Tree<A>>; List<Tree<A>>}:
+  doc: ```
+       desc: Depth-first search through the trees till you find an element for
+       which a predicate is true and partition the tree around it into
+       tree rooted at its (grand)parents, left siblings, right siblings, and iself
+       
+       parameters used for input (provides new information):
+       {{childs}}: list of trees to apply the algorithm to
+       {{pred}}: predicate to apply to find the pivot node
+       
+       parameters to save important info about current state:
+       {{curr-parents}}: used to store the current parents of the pivot node
+       {{curr-lefties}}: used to store the current left-siblings of the pivot node
+       
+       return: a tuple storing the pivot tree and its (grand)parents, left and right siblings.
+       ```
   cases (List<Tree<A>>) childs:
-    | empty => none
+    | empty => {mt; empty; empty; empty}
     | link(f, r) =>
       cases (Tree<A>) f:
-        | mt => none
+        | mt => {mt; empty; empty; empty}
         | node(v, c) =>
           ask:
             | pred(v) then:
-              some(cursor(above-left ,r, f)) # No the whole tree yet
+              {f; curr-parents; r; curr-lefties} # No the whole tree yet
             | otherwise:
-              new-node = node(current-parent.value, 
-                current-parent.children.append([list: node(v, empty)]))
-
-              s = find-all-in-list(c, pred, 
-                above-left, new-node)
-              cases (Option<Cursor<A>>) s:
-                | none =>
-                  find-all-in-list(r, pred, 
-                    node(above-left.value, 
-                      above-left.children.append(node(v, empty)), 
-                      current-parent))
-                | some(_) =>
-                  s
-              end
-          end
-      end
-  end
-where:
-
-  find-all-in-list(empty, is-2, node(-99, empty), node(-99, empty)) is none
-  find-all-in-list([list: tree-1], is-2 , node(-99, empty), node(-99,empty)) 
-    is some(cursor(node(1, empty), [list: node(3, empty)], node(2, empty)))
-  #find-below-in-list([list: subnode-1], is-2) is subnode-1
-end
-
-fun find-below-in-list<A>(childs :: List<Tree<A>>, pred :: (A -> Boolean)) -> Tree<A>:
-  cases (List<Tree<A>>) childs:
-    | empty => mt
-    | link(f, r) =>
-      cases (Tree<A>) f:
-        | mt => mt
-        | node(v, c) =>
-          ask:
-            | pred(v) then:
-              f # No the whole tree yet
-            | otherwise:
-              s = find-below-in-list(c, pred)
-              cases (Tree<A>) s:
-                | mt =>
-                  find-below-in-list(r, pred)
+              {dwn; upp; rght; lft} = 
+                find-all-in-list(c, pred, link(f, curr-parents), empty)
+              cases (Tree<A>) dwn:
+                |  mt =>
+                  find-all-in-list(r, pred, curr-parents,link(f, curr-lefties))
                 | node(_, _) =>
-                  s
+                  {dwn; upp; rght; lft}
               end
           end
       end
   end
 where:
 
-  find-below-in-list(empty, is-2) is mt
-  find-below-in-list([list: tree-1], is-2) is node(2, empty)
-  find-below-in-list([list: subnode-1], is-2) is subnode-1
+  find-all-in-list(empty, is-2, empty, empty) 
+    is {mt; empty; empty; empty}
+
+  find-all-in-list(
+    [list: tree-1], is-2, [list: node(".", [list: tree-1])], empty)
+    is {
+    node(2, empty); 
+    [list: tree-1, node(".", [list : tree-1])];
+    [list: node(3, empty)];
+    empty}
+
+  find-all-in-list(
+    [list: subnode-2root], is-2, [list: node(".", [list: subnode-2root])], empty)
+    is {
+    subnode-2root; 
+    [list: node(".", [list : subnode-2root])];
+    empty;
+    empty}
+
+  find-all-in-list([list: tree-2], is-2, [list: node(".", [list: tree-2])], empty) 
+    is {
+    subnode-2root; 
+    [list: tree-2, node(".", [list: tree-2])];
+    [list: subnode-3root];
+    empty}
+  
+  find-all-in-list([list: tree-3], is-2, [list: node(".", [list : tree-3])], empty)
+    is {
+    subnode-2root;
+    [list: tree-3, node(".", [list : tree-3])];
+    [list: subnode-3root];
+    [list: subnode-no-2];
+  }
 end
 
-fun find-around-in-list<A>(childs :: List<Tree<A>>, pred):
-  childs.first
-end
+
 fun find-cursor<A>(tree :: Tree<A>, pred :: (A -> Boolean)) -> Cursor<A>:
-  #|ask:
-    | pred(tree.value) then:
-      cursor(find-around(tree, pred), tree)
-    | otherwise:
-      b = find-below-in-list(tree.children, pred)
-      cursor(find-around(b, pred), b)
-  end|#
-  cursor(find-around-in-list([list: tree], pred),
-    find-below-in-list([list : tree], pred))
-where:
-  #predicate:
-
-  find-cursor(mt-tree, is-2) raises "Could not find node matching predicate" 
-  find-cursor(tree-1, is-2) is 
-  cursor(
-    node(1, 
-      [list: node(3, empty)]),node(2, empty))
-  find-cursor(tree-2root, is-2) is
-  cursor(mt, tree-2root)
-  find-cursor(tree-3root, is-2) raises "s"
-  find-cursor(tree-2, is-2) is
-  cursor(node(1, [list: subnode-2]), subnode-1) 
+  ...
 end
 
 
