@@ -19,22 +19,21 @@ end
 
 #/////CHECKING GET-NODE-VAL & TO-TREE///////
 
-check ```get-node-val returns the value of the selected node,
-      raising error when no node is found.```: 
-  # --- test cursors: --
-  # cursor-list-at-2: points at 2nd element of tree resembling vertical list of 1, 2, 3, 4.
+check ```get-node-val returns the value of the selected node.```: 
   curs-at-2 = 
     find-cursor(tree-list-1234, is-2)
-
-  mt-curs = 
-    update(find-cursor(tree-list-1234, is-2), delete)
-
   # cursor at node w/ value 2 returns 2
   get-node-val(curs-at-2) is some(2)  
+end
 
+check "get-node-val returns none instead of some when cursor points at empty tree" :
+  mt-curs = 
+    update(find-cursor(tree-list-1234, is-2), delete)
   # if cursor can't be found, raises error:
   get-node-val(mt-curs) is none 
+end
 
+check "get-node-val raises error (through find-cursor) when value isn't found.":
   # when predicate doesn't return true for any node, raise error.
   get-node-val(find-cursor(tree-list-1234, lam(x): x == 1090 end)) 
     raises "Could not find node matching predicate"
@@ -58,7 +57,9 @@ check "to-tree outputs full tree AND cleans extraneous instances of mt.":
       node(6, [list: node(5, empty)])])
 
   to-tree(cur-extraneous-mt) is cleaned-tree
+end
 
+check "to-tree turns malformed leaf (with too many mts) to normal leaf.": 
   leaf-extraneous-mt = node(5, [list: mt, mt, mt])
   cur-malformed-leaf = 
     find-cursor(leaf-extraneous-mt, lam(x): x == 5 end) 
@@ -67,13 +68,17 @@ check "to-tree outputs full tree AND cleans extraneous instances of mt.":
   to-tree(cur-malformed-leaf) is fixed-leaf
 end
 
+check "to-tree does nothing to well-formed tree.":
+  to-tree(
+    find-cursor(tree-2, lam(x): x == 1 end))
+    is tree-2
+end
+
 check "an empty cursor outputs an empty tree.":
   # testing cursor pointing at empty tree:
   mt-cursor = update(find-cursor(tree-list-1234, lam(x):  x == 1 end), delete)
   to-tree(mt-cursor)
     is mt
-  # testing that cursor pointing at sub-tree still returns whole tree
-  #🚩🚩🚩🚩 test this.
 end
 
 
@@ -187,8 +192,13 @@ check "Up works in normal cases, erroring when cursor is at uppermost root.":
 end
 
 #//////// CHECKING UPDATE /////////
-check:
-  
+
+#--- test variables for update-----
+cur-tree-1-root = find-cursor(tree-1, lam(x): x == 1 end)
+
+#---end of test variables--------
+
+check "Update allows us to move around & delete nodes":
   # deletes node at cursor:
   cur-left-child = find-cursor(tree-1, lam(x): x == 2 end)
   to-tree(
@@ -201,24 +211,43 @@ check:
     update(
       right(cur-left-child), delete)) is
   node(1, [list: node(2, empty)])
+end
 
+check "update allows us to replace & edit nodes": 
   # replaces a node with a leaf
   to-leaf = lam(node-1): node(node-1.value, empty) end
-  
+
   to-tree(
     update(cur-no-siblings, to-leaf)) is
   node(1, [list: node(2, empty)])
 
+  # adds 1 to value of node selected by cursor
+  add-1 = 
+    lam(node3): node(
+        (node3.value + 1), node3.children) 
+    end
+
+  to-tree(
+    update(cur-tree-1-root, add-1)) 
+    is node(2, [list: node(2, empty), node(3, empty)])
+end
+
+check "update allows us to insert new children": 
+  # insert new node as child of selected node
+  insert-99 = 
+    lam(node4): 
+      node(node4.value, 
+        link(node(99, empty),
+          node4.children))
+    end
+  to-tree(
+    update(cur-tree-1-root, insert-99)) 
+    is node(1, [list: node(99, empty), node(2, empty), node(3, empty)])
+
   # gives the node many extraneous mt children, and then, in to-tree, cleans up those mts.
   mt-multiplier = lam(node2): node(node2.value, [list: mt, mt, mt, mt]) end
-  
-  #|to-tree(
-    update(cur-no-siblings, mt-multiplier)) is cur-no-siblings
-  |#
+  print("x")  
+  to-tree(
+    update(cur-no-siblings, mt-multiplier)) is 
+  node(1, [list: node(2, [list: ])])
 end
-#|
-  replace node with subtree
-  replace node with empty
-  update w invalid mvmt
-   end
-|#
