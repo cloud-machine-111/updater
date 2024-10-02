@@ -11,9 +11,11 @@ is-2 = {(x): x == 2 }
 
 mt-tree = mt
 
+#//// TREE 1 ////
 tree-1 = node(1, 
   [list: node(2, empty), node(3, empty)])
 
+# /// SUBNODES USED FOR TREE-2, TREE-3, AND TREE-4 ////
 tree-2root = node(2, empty)
 tree-3root = node(3, empty)
 
@@ -27,11 +29,11 @@ subnode-3root = node(3,
 subnode-3root-no-2 = node(3,
   [list: node(1, empty), node(4, empty)])
 
-
 subnode-no-2 = node(5,
   [list: node(3, [list: node(4, empty), node(10, [list: node(6, empty)])]),
     node(50, [list: node(51, empty)])])
 
+# /// TREES 2, 3, AND 4 ////
 tree-2 = node(1, 
   [list: subnode-2root, subnode-3root])
 
@@ -41,6 +43,7 @@ tree-3 = node(-99,
 tree-4 = node(-99,
   [list: subnode-3root-no-2, subnode-no-2, subnode-2root, subnode-3root])
 
+#//// SPECIAL CASE TREES & MALFORMED TREES////
 tree-list-1234 = 
   node(1,
     [list: node(2, [list: node(3, [list: node(4, empty)])])])
@@ -68,6 +71,8 @@ deep-tree = node(1,
         node(6, empty)]),
     node(7, empty)])
 
+
+#//// delete function: used in test to create cursor that can point at empty tree. ////
 fun delete<A>(tree :: Tree<A>) -> Tree:
   doc: "takes tree, returns empty tree."
   mt
