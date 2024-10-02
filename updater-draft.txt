@@ -15,7 +15,7 @@ include my-gdrive("updater-common.arr")
 # one variant, and can have whatever fields you need
 
 
-#----------------------------
+#//// DATA DEFINITIONS /////
 data Cursor<A>: 
     # cursor(above :: Tree<A>, below :: Tree<A>, around :: Tree<A>)
   | cursor(below :: Tree<A>, 
@@ -25,40 +25,42 @@ data Cursor<A>:
 end
 # 🚩🚩🚩🚩 MENTION THAT LIST OF LEFT & RIGHT NODES ARE TREATED AS A STACK (last in = first out)
 
-# TEST VARIABLES 🚩🚩🚩🚩🚩🚩🚩🚩🚩
-# cursor for tree-list-1234
+# --- test cursor: --
+# cursor-list-at-2: points at 2nd element of tree resembling vertical list of 1, 2, 3, 4.
 cursor-list-at-2 =
   cursor( 
-    # below:
     node(2,
       [list: 
         node(3, [list: 
             node(4, empty)])]), 
-    # above: (our above field also contains child)
     [list: 
       tree-list-1234, 
       node(".", 
         [list: tree-list-1234])], 
-    # right:
     empty,
-    # left:
-    empty
-    )
-
+    empty)
 #------------------------------
-
+#/////// HELPER FUNCTIONS FOR FIND-CURSOR /////////
 fun find-all-in-list<A>(
     childs :: List<Tree<A>>, 
     pred :: (A -> Boolean), 
     curr-parents :: List<Tree<A>>,
     curr-lefties :: List<Tree<A>>)
-  -> {Tree<A>; List<Tree<A>>; List<Tree<A>>; List<Tree<A>>}: 
+  -> {Tree<A>; # tree our cursor points to
+    List<Tree<A>>; 
+    #| ^ list containing tree's parent, immediate grandparent, 
+       immediate great-grandparents, etc... in THAT order.|#
+    List<Tree<A>>; # RIGHT siblings
+    List<Tree<A>>}: # LEFT siblings
   doc: ```
-       desc: Depth-first search through the trees till we find an element for
-       which a predicate is true and partition the tree around it into
-       tree rooted at its (grand)parents, left siblings, right siblings, and iself
+       desc: Searches depth-first through a list of trees till we find an element for
+       which a predicate is true, then partitions the tree around it to mark its
+       position.
+       (if root node is taken in, we will create a new imaginary node & enter root
+       node as the only member in its list of childs. We're thus able to repeat this
+       function on root nodes AND child nodes.)
 
-       parameters used for input (provides new information):
+       parameters used for input (intakes new information):
        {{childs}}: list of trees to apply the algorithm to
        {{pred}}: predicate to apply to find the pivot node
 
@@ -66,8 +68,8 @@ fun find-all-in-list<A>(
        {{curr-parents}}: used to store the current parents of the pivot node
        {{curr-lefties}}: used to store the current left-siblings of the pivot node
 
-       return: a tuple storing the pivot tree and its (grand)parents, left and right siblings.
-       ```
+       return: a tuple storing (1) the tree our cursor points to, (2) its (grand)parents, 
+       (3) its right siblings, and (4) its left siblings. ```
   cases (List<Tree<A>>) childs:
     | empty => {mt; empty; empty; empty}
     | link(f, r) =>
@@ -76,7 +78,7 @@ fun find-all-in-list<A>(
         | node(v, c) =>
           ask:
             | pred(v) then:
-              {f; curr-parents; r; curr-lefties} # No the whole tree yet
+              {f; curr-parents; r; curr-lefties} 
             | otherwise:
               {dwn; upp; rght; lft} = 
                 find-all-in-list(c, pred, link(f, curr-parents), empty)
@@ -90,72 +92,119 @@ fun find-all-in-list<A>(
       end
   end
 where:
-  find-all-in-list(empty, is-2, empty, empty) 
+  # empty tree:
+  find-all-in-list(empty, # empty list of childs (on which we would check our predicate)
+    is-2, # predicate
+    empty, # list of current parents, grandparents, etc...
+    empty) # left siblings of node currently being checked
     is {mt; empty; empty; empty}
 
   find-all-in-list(
-    [list: tree-1], is-2, [list: node(".", [list: tree-1])], empty)
+    [list: tree-1], 
+    is-2, 
+    [list: node(".", [list: tree-1])], 
+    #| ^ a list of current parent & greater ancestors, arranged sequentially; 
+    this allows us to backtrack if tree has many layers. |#
+    #| if faced w/ root node, we add another imaginary node above it 
+    so we can treat it as a list of 1 child node; this allows our function
+    to deal w/ root nodes & child nodes the same way.|#
+    empty) 
     is {
     node(2, empty); 
     [list: tree-1, node(".", [list : tree-1])];
     [list: node(3, empty)];
     empty}
 
+  # find 1st instance of 2 in node where root = 2:
   find-all-in-list(
-    [list: subnode-2root], is-2, [list: node(".", [list: subnode-2root])], empty)
+    [list: subnode-2root], 
+    is-2, 
+    [list: node(".", [list: subnode-2root])], 
+    empty)
     is {
     subnode-2root; 
-    [list: node(".", [list : subnode-2root])];
+    [list: node(".", [list : subnode-2root])]; # cursor points at entire tree.
     empty;
     empty}
 
-  find-all-in-list([list: tree-2], is-2, [list: node(".", [list: tree-2])], empty) 
+  # find 1st instance of 2 in tree where first child node is 2:
+  find-all-in-list(
+    [list: tree-2], 
+    is-2, 
+    [list: node(".", [list: tree-2])], 
+    empty) 
     is {
-    subnode-2root; 
-    [list: tree-2, node(".", [list: tree-2])];
+    subnode-2root; # subnode with root of 2
+    [list: tree-2, node(".", [list: tree-2])]; # above, we have direct parent tree & direct grandparent tree. (Includes direct parent, allowing us to backtrack.)
     [list: subnode-3root];
     empty}
 
-  find-all-in-list([list: tree-3], is-2, [list: node(".", [list : tree-3])], empty)
+  # find 1st instance of 2 in tree where first child tree has no 2, but 2nd one does:
+  find-all-in-list(
+    [list: tree-3], 
+    is-2, 
+    [list: node(".", [list : tree-3])], 
+    empty)
     is {
-    subnode-2root;
-    [list: tree-3, node(".", [list : tree-3])];
-    [list: subnode-3root];
-    [list: subnode-no-2]}
+    subnode-2root; # below: subnode with root of 2
+    [list: tree-3, node(".", [list : tree-3])]; # above: parents, grandparents
+    [list: subnode-3root]; # right: our 3rd sub-tree (doesn't include 2)
+    [list: subnode-no-2]} # left: our 1st sub-tree (doesn't include 2)
 
-  find-all-in-list([list: tree-4], is-2, [list: node(".", [list : tree-4])], empty)
+  # find 1st instance of 2 in tree where 3rd and 4th nodes in the same row BOTH have 2 as a child:
+  find-all-in-list(
+    [list: tree-4], 
+    is-2, 
+    [list: node(".", [list : tree-4])], 
+    empty)
     is {
-    subnode-2root;
-    [list: tree-4, node(".", [list : tree-4])];
-    [list: subnode-3root];
+    subnode-2root; # picks leftermost node instead of rightermost node
+    [list: tree-4, node(".", [list : tree-4])]; 
+    [list: subnode-3root]; 
     [list: subnode-no-2, subnode-3root-no-2]
   }
 end
 
-
 fun find-cursor<A>(tree :: Tree<A>, pred :: (A -> Boolean)) -> Cursor<A>:
+  doc: "Outputs a cursor that points at the first instance of a tree node for which predicate returns true."
+
+  # our tuple from find-all-in-list provides essential info for cursor:
   {dwn; upp; rght; lft} 
-  = find-all-in-list([list: tree], pred, [list: node(".", [list: tree])], empty)
+  = find-all-in-list(
+    [list: tree], 
+    pred, 
+    [list: node(".", [list: tree])], 
+    # ^ we insert imaginary node to satisfy helper function's contract.
+    empty)
+
   cases(Tree) dwn:
+      # raise error if the cursor is pointing at empty tree:
     | mt => raise("Could not find node matching predicate")
+      # else, insert contents of tuple:
     | node(_, _) =>
       cursor(dwn, upp, rght, lft)
   end
 where:
+  # empty tree raises error.
   find-cursor(mt, is-2) raises "Could not find node matching predicate"
+
+  # Root of tree-1 has child nodes 2 & 3. Cursor points at first instance of 2.
   find-cursor(tree-1, is-2) is cursor(
     node(2, empty), 
     [list: tree-1, node(".", [list: tree-1])], 
     [list: node(3, empty)],
     empty)
-  #      find-cursor(tree-2, is-2) is cursor()
+
+  # tree-2 has TWO subnodes containing 2. Cursor points at leftermost, higher instance of 2:
   find-cursor(tree-2, is-2) is cursor(
     subnode-2root, 
     [list: tree-2, node(".", [list: tree-2])], 
     [list: subnode-3root],
     empty)
 end
+#--------end of find-cursor------------
 
+#/////// HELPER FUNCTIONS FOR UP, DOWN, LEFT, RIGHT //////
 fun find-siblings<A>(
     parent :: Tree<A>%(is-node), 
     childs :: List<Tree<A>>%(is-link), 
@@ -163,7 +212,7 @@ fun find-siblings<A>(
     current-left :: List<Tree<A>>) -> 
   {List<Tree<A>> ; # Left siblings 
     List<Tree<A>>}: # Right siblings
-  doc: "Finds left & right siblings of special-child."
+  doc: "Finds left & right siblings of special-child. Returns them as tuple of 2 stacks."
   cases(List) childs:
     | empty => {empty; empty}
     | link(f,r) => 
@@ -180,10 +229,12 @@ fun find-siblings<A>(
       end   
   end
 where:
+  # a LONG list of children:
   long-children = 
     [list: 
       node(1, empty), node(2, empty), node(3, empty), node(4, empty),  node(5, empty)]
 
+  # find siblings of child 3:
   find-siblings(
     node(1, long-children), # parent,
     long-children, # childs
@@ -191,30 +242,37 @@ where:
     empty) # stores children currently to the left 
   is
   {[list: node(2, empty), node(1, empty)]; 
-    # ^ remember that we're treating right-childs & left-childs as stacks, thus the reversed order.
+    #| ^left-child is in reversed order because we're both as stacks (1st in = 1st out)|#
     [list: node(4, empty), node(5, empty)]}
-
-
 end
 
 fun up<A>(cur :: Cursor<A>) -> Cursor<A>:
+  doc: "Navigates cursor upwards."
   ask:
-    | length(cur.above) == 1 # only node is imaginary node
+      # if only node above our cursor is imaginary node, we can't move upwards.
+    | length(cur.above) == 1 
       then: raise("Invalid movement")
     | otherwise:
-      new-below = cur.above.first
+      #| now that we've moved up 1 node, our old node's immediate parent
+        (first in our stack of above-trees) becomes the tree we're pointing at: |#
+      new-below = cur.above.first 
+      #| our new above-list becomes every ancestor tree EXCEPT our old parent.|#
       new-above = cur.above.rest 
+
+      # now that we've moved upwards, we must recalculate our new node's siblings:
       {new-left; new-right} = 
         find-siblings(
-          new-above.first, # parent
+          new-above.first, # immediate parent of current child
           new-above.first.children, # siblings of current child
-          new-below, # special child (we want to find siblings around it)
-          empty)
+          new-below, # current child (find siblings of its root.)
+          empty) 
 
+      # reconstruct cursor:
       cursor(new-below, new-above, new-right, new-left)
   end
 where:
-  # Checks most simple case: can up move up a tree that resembles a vertical list?
+  # cursor-list-at-2 points at 2nd element of tree resembling vertical list.
+  # Simplest case: can we move up a tree resembling a vertical list?
   up(cursor-list-at-2)
     is 
   cursor(
@@ -223,24 +281,26 @@ where:
     empty, # Right
     empty # Left
     )
+
+  # If we're at the root, we can't move up anymore:
   up(
     cursor(
-      subnode-2root, # Below 
-      [list: node(".", [list: subnode-2root])], # Above 
-      [list: ], # Right
-      empty)) # Left 
+      subnode-2root, 
+      [list: node(".", [list: subnode-2root])], 
+      [list: ], 
+      empty))  
     raises ""
 
+  # When we move up a layer, list of left & right children should change.
   old-parent = 
     node(3, [list: node(4, empty), node(5, empty), node(6, empty)])
-  
+
   new-below = old-parent
 
-  # 🚩MAKE NEW CHECK BLOCK FOR THING CHECKED
-  # test: when we move up a layer, list of left & right children should change.
   up(
-    cursor(node(5, empty), # tree below cursor
-      [list: # list of parent & grandparent (etc...) trees
+    cursor(node(5, empty), # tree our cursor is pointing at
+      # list of parent & ancestor trees:
+      [list: 
         old-parent, 
         deep-tree, 
         node(".", [list: deep-tree])], 
@@ -255,6 +315,7 @@ where:
 end
 
 fun left<A>(cur :: Cursor<A>) -> Cursor<A>:
+  doc: "Navigates cursor leftwards."
   cases(List<Tree<A>>) cur.left:
     | empty => raise("Invalid movement")
     | link(f,r) =>
@@ -265,29 +326,36 @@ fun left<A>(cur :: Cursor<A>) -> Cursor<A>:
       cursor(new-down, new-up, new-right, new-left)
   end
 where:
-  left(cursor-list-at-2) raises "Invalid movement" # 🚩🚩🚩 doc - case with no left
-  one-left =  
-    left(cursor(
-        node(3, empty), [list: tree-1, node(".", [list: tree-1])],
-        empty, [list: node(2, empty)])) 
-  one-left is 
-  cursor(
-    node(2, empty), [list: tree-1, node(".", [list: tree-1])],
-    [list: node(3, empty)], empty)
-  #if my left (i.e. cur.left) is empty, raise error (cases for list)
+  # cursor-list-at-2 points at 2nd element of tree resembling vertical list.
+  # Cursor can't move left when tree resembles vertical list:
+      left(cursor-list-at-2) raises "Invalid movement"
 
-  left(one-left) raises "Invalid movement" # double left
+      # move 1 node left; below node should change from 3 to 2:
+      parent-1 = [list: tree-1, node(".", [list: tree-1])] # should remain constant
+      one-left = 
+        left(cursor(
+            node(3, empty), parent-1,
+            empty, [list: node(2, empty)])) 
+      one-left is 
+      cursor(
+        node(2, empty), parent-1,
+        [list: node(3, empty)], empty)
+      #if my left (i.e. cur.left) is empty, raise error (cases for list)
 
-  #tree 2, rightermost node at 2nd level
-  left(cursor(
-      subnode-3root, [list: tree-2, node(".", [list: tree-2])],
-      empty, [list: subnode-2root])) is 
-  cursor(
-    subnode-2root, [list: tree-2, node(".", [list: tree-2])],
-    [list: subnode-3root], empty)
+      # testing a double left, which should fail (no more sibling nodes):
+      left(one-left) raises "Invalid movement" 
+
+      # In tree-2, move left from subnode of root 3 to subnode of root 2:
+      left(cursor(
+          subnode-3root, [list: tree-2, node(".", [list: tree-2])],
+          empty, [list: subnode-2root])) is 
+      cursor(
+        subnode-2root, [list: tree-2, node(".", [list: tree-2])],
+        [list: subnode-3root], empty)
 end
 
 fun right<A>(cur :: Cursor<A>) -> Cursor<A>:
+  doc: "Navigates cursor rightwards."
   cases(List<Tree<A>>) cur.right:
     | empty => raise("Invalid movement")
     | link(f,r) =>
@@ -298,13 +366,37 @@ fun right<A>(cur :: Cursor<A>) -> Cursor<A>:
       cursor(new-down, new-up, new-right, new-left)
   end
 where:
-  1 is 1
-  # 🚩write test later after cleaning up left tests
+  # Cursor can't move right when tree resembles vertical list:
+  right(cursor-list-at-2) raises "Invalid movement"
+
+  # move 1 node right; below node should change from 2 to 3:
+  parent-1 = [list: tree-1, node(".", [list: tree-1])] # should remain constant
+  one-right = 
+    right(cursor(
+        node(2, empty), parent-1,
+        [list: node(3, empty)], empty)) 
+  one-right is 
+  cursor(
+    node(3, empty), parent-1,
+    empty, [list: node(2, empty)])
+
+  # testing a double right, which should fail (no more sibling nodes):
+  right(one-right) raises "Invalid movement" 
+
+  # In tree-2, move right from subnode of root 2 to subnode of root 3:
+  parent-2 = [list: tree-2, node(".", [list: tree-2])]
+  right(cursor(
+      subnode-2root, parent-2,
+      [list: subnode-3root], empty)) is 
+  cursor(
+    subnode-3root, parent-2,
+    empty, [list: subnode-2root])
 end
 
 fun down<A>(cur :: Cursor<A>, child-index :: Number ) -> Cursor<A>:
+  doc: "Navigates cursor downwards" 
   ask: 
-    | length( cur.below.children) == 0 # checks whether tree below node is leaf
+    | length(cur.below.children) == 0 # checks whether tree below node is leaf
       then: raise("Invalid movement")
     | otherwise:
       new-below = cur.below.children.get(child-index)
@@ -319,11 +411,54 @@ fun down<A>(cur :: Cursor<A>, child-index :: Number ) -> Cursor<A>:
       cursor(new-below, new-above, new-right, new-left)
   end
 where:
-  #🚩 test- same as up
+  # Simplest case: can we move down a tree resembling a vertical list?
+  # cursor-list-at-2 points at 2nd element of tree resembling vertical list.
+  down(cursor-list-at-2, 0)
+    is 
+  cursor(
+    node(3, [list: node(4, empty)]),
+    [list:
+      node(2, [list: node(3, [list: node(4, [list: ])])]), 
+      tree-list-1234, 
+      node(".", [list: tree-list-1234])], 
+    empty, empty)
+
+  # If we're at a leaf node, we can't move down anymore.
+  # (tree-1 has a root of 1 and 2 & 3 as its children. Cursor points at 2.)
+  down(
+    cursor(
+      node(2, empty), 
+      [list: node(".", [list: tree-1])], 
+      empty, 
+      empty), 0)  
+    raises ""
+
+  # When we move down a layer, list of left & right children should change.
+  # (deep-tree has root of 1 and 2, 3...7 as children. Cursor points at root.)
+  down(
+    cursor(deep-tree, # below
+      [list: node(".", [list: deep-tree])], # parent tree above
+      empty, # left
+      empty), # right
+    0)
+    is cursor(
+    node(2, empty), 
+    [list: deep-tree, node(".", [list: deep-tree])], 
+    # right/left siblings change when cursor moves:
+       [list: node(3, empty), node(4, empty), 
+      node(5, empty), node(6, empty), node(7, empty)], 
+    empty) 
+  #| 🚩🚩🚩 TEST WORKS ON TGE FOLLOWING VERSION.
+     however, nodes 4-7 shouldn't be nested under node 3. 
+  [list: node(3, 
+      [list: node(4, empty), 
+        node(5, empty), 
+        node(6, empty)]),
+    node(7, empty)], empty) |# 
 end
 
 fun update-above<A>(parents :: List<Tree<A>>, child :: Tree<A>, old-child :: Tree<A>) -> List<Tree<A>>:
-  doc: "goes through our list of parents & grandparents, etc... and replaces updated sub-tree with new tree in every case."
+  doc: "goes through our list of parents & grandparents, etc... and replaces updated sub-tree with new tree in every ancestor tree."
   cases (List<Tree<A>>) parents:
     | empty => empty
     | link(f, r) =>
@@ -336,6 +471,22 @@ fun update-above<A>(parents :: List<Tree<A>>, child :: Tree<A>, old-child :: Tre
           end})
       link(new-parent, update-above(r, new-parent, f))
   end
+where:
+  # tree 1 has root 1 and children 2 & 3. Cursor points at root 1. We replace 2 with 77.
+  tree-1-updated =
+    node(1, 
+      [list: node(77, empty), node(3, empty)])
+  
+  update-above(
+    [list: tree-1, node(".", [list: tree-1])], 
+    node(77, empty), # <-- replacement child
+    node(2, empty)) # <-- old child
+    is 
+  [list: tree-1-updated, node(".", tree-1-updated)]
+  
+  #tree has multiple 2s. Take the leftmost, uppermost 2 and replace it with 77.
+  update-above(...)
+    
 end
 
 fun update<A>(cur :: Cursor<A>, func :: (Tree<A> -> Tree<A>)) -> Cursor<A>:
@@ -345,7 +496,7 @@ fun update<A>(cur :: Cursor<A>, func :: (Tree<A> -> Tree<A>)) -> Cursor<A>:
 end
 
 fun clean<A>(root :: Tree<A>) -> Tree<A>:
-  doc: "removes mt etc etc"
+  doc: "removes all instances of mt that aren't at a leaf."
   cases (Tree<A>) root:
     | mt => mt
     | node(v, c) =>
