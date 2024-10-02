@@ -59,6 +59,17 @@ malformed-subnode =
 malformed-tree-2b = node(1, [list: malformed-subnode, subnode-3root, mt])
 
 deep-tree = node(1,
-  [list: node(2, empty), 
-    node(3, [list: node(4, empty), node(5, empty), node(6, empty)]),
+  [list: 
+    node(2, empty), 
+    node(3, 
+      [list: 
+        node(4, empty), 
+        node(5, empty), 
+        node(6, empty)]),
     node(7, empty)])
+
+fun delete<A>(tree :: Tree<A>) -> Tree:
+  doc: "takes tree, returns empty tree."
+  mt
+end
+  
