@@ -17,12 +17,16 @@ tree-1 = node(1,
 tree-2root = node(2, empty)
 tree-3root = node(3, empty)
 
-subnode-2root = node(2,
+subnode-2root = node(2, # the root is 2
   [list: 
     node(1, empty), node(2, empty), node(3, empty)])
 
 subnode-3root = node(3,
   [list: node(2, empty), node(4, empty)])
+
+subnode-3root-no-2 = node(3,
+  [list: node(1, empty), node(4, empty)])
+
 
 subnode-no-2 = node(5,
   [list: node(3, [list: node(4, empty), node(10, [list: node(6, empty)])]),
@@ -33,3 +37,28 @@ tree-2 = node(1,
 
 tree-3 = node(-99,
   [list: subnode-no-2, subnode-2root, subnode-3root])
+
+tree-4 = node(-99,
+  [list: subnode-3root-no-2, subnode-no-2, subnode-2root, subnode-3root])
+
+tree-list-1234 = 
+  node(1,
+    [list: node(2, [list: node(3, [list: node(4, empty)])])])
+
+# has too many mts
+# if cleaned, should be identical to tree-2
+malformed-tree-2a = node(1, 
+  [list: subnode-2root, mt, subnode-3root, mt])
+
+malformed-subnode = 
+  # if cleaned, should be identical to subnode-2root
+  node(2, # the root is 2
+    [list: 
+      node(1, empty), node(2, empty), mt, mt, node(3, empty)])
+
+malformed-tree-2b = node(1, [list: malformed-subnode, subnode-3root, mt])
+
+deep-tree = node(1,
+  [list: node(2, empty), 
+    node(3, [list: node(4, empty), node(5, empty), node(6, empty)]),
+    node(7, empty)])
