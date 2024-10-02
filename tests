@@ -1,0 +1,224 @@
+include shared-gdrive("updater-definitions.arr", "19r6H4ZtedGt2ARtWQo1HflN0Ok8vxixJ")
+
+include my-gdrive("updater-common.arr")
+import find-cursor, get-node-val, update, to-tree, left, right, up, down, is-Cursor
+  from my-gdrive("updater-code.arr")
+import my-gdrive("updater-code.arr") as code
+type Cursor = code.Cursor
+# END HEADER
+# DO NOT CHANGE ANYTHING ABOVE THIS LINE
+#
+# Write your examples and tests in here. These should not be tests of implementation-specific details (e.g., helper functions).
+
+check "Simple tests; your tests should have this form":
+  tree = node(5, [list: node(6, [list:])])
+
+  to-tree(find-cursor(tree, lam(_): true end)) is tree
+  get-node-val(up(find-cursor(tree, lam(x): x == 6 end))) is some(5)
+end
+
+#/////CHECKING GET-NODE-VAL & TO-TREE///////
+
+check ```get-node-val returns the value of the selected node,
+      raising error when no node is found.```: 
+  # --- test cursors: --
+  # cursor-list-at-2: points at 2nd element of tree resembling vertical list of 1, 2, 3, 4.
+  curs-at-2 = 
+    find-cursor(tree-list-1234, is-2)
+
+  mt-curs = 
+    update(find-cursor(tree-list-1234, is-2), delete)
+
+  # cursor at node w/ value 2 returns 2
+  get-node-val(curs-at-2) is some(2)  
+
+  # if cursor can't be found, raises error:
+  get-node-val(mt-curs) is none 
+
+  # when predicate doesn't return true for any node, raise error.
+  get-node-val(find-cursor(tree-list-1234, lam(x): x == 1090 end)) 
+    raises "Could not find node matching predicate"
+end
+
+check "to-tree outputs full tree AND cleans extraneous instances of mt.":
+  # test var: a malformed tree
+  ok-subnode = node(9, empty)
+  malformed-subnode-1 = node(6, [list: mt, node(5, empty)])
+  tree-extraneous-mt = node(5, [list: ok-subnode, malformed-subnode-1, mt])
+
+  # cursor for malformed tree:
+  cur-extraneous-mt = 
+    find-cursor(tree-extraneous-mt, 
+      lam(x): x == 5 end)
+
+  # to-tree's expected output:
+  cleaned-tree = node(5, 
+    [list: 
+      node(9, empty), 
+      node(6, [list: node(5, empty)])])
+
+  to-tree(cur-extraneous-mt) is cleaned-tree
+
+  leaf-extraneous-mt = node(5, [list: mt, mt, mt])
+  cur-malformed-leaf = 
+    find-cursor(leaf-extraneous-mt, lam(x): x == 5 end) 
+  fixed-leaf = node(5, empty)
+
+  to-tree(cur-malformed-leaf) is fixed-leaf
+end
+
+check "an empty cursor outputs an empty tree.":
+  # testing cursor pointing at empty tree:
+  mt-cursor = update(find-cursor(tree-list-1234, lam(x):  x == 1 end), delete)
+  to-tree(mt-cursor)
+    is mt
+  # testing that cursor pointing at sub-tree still returns whole tree
+  #🚩🚩🚩🚩 test this.
+end
+
+
+#///////CHECKING LEFT, RIGHT, UP, & DOWN/////
+
+#----test variables for left, right, up, & down----
+
+# points to node w/o siblings (can't move left or right)
+cur-no-siblings = find-cursor(tree-list-1234, lam(x): x == 2 end)
+
+# tree-1 has root of 1, and the following children:
+cur-node-3 = find-cursor(tree-1, lam(x): x == 3 end)
+cur-node-2 = find-cursor(tree-1, lam(x): x == 2 end)
+
+# tree-2 has a subnode of root 3 & a subnode of root 2. 
+cur-subnode-3 = find-cursor(tree-2, lam(x): x == 3 end)
+cur-subnode-2 = find-cursor(tree-2, lam(x): x == 2 end)
+
+# the following nodes in deep-tree are stacked atop each other, & each have diff siblings.
+cur-deep-tree-row-1 = 
+  find-cursor(deep-tree, lam(x): x == 3 end)
+
+cur-deep-tree-row-2 = 
+  find-cursor(deep-tree, lam(x): x == 5 end)
+
+#------END OF TEST VARIABLES FOR NAVIGATION--------------
+
+
+check "Left works correctly for simple & more complex trees":
+  # cursor in tree-1 moves from node 3 to node 2.
+  get-node-val(left(cur-node-3)) is get-node-val(cur-node-2)
+
+  # Tree 2 has a subnode of root 3 & a subnode of root 2. We move from former to latter.
+  get-node-val(left(cur-subnode-3)) is get-node-val(cur-subnode-2)
+end
+
+check "Left errors when a node has no siblings":
+  # Cursor can't move left when tree resembles vertical list:
+  get-node-val(left(cur-no-siblings)) raises "Invalid movement"
+
+  # testing a double left, which should fail (no more sibling nodes):
+  get-node-val(
+    left(left(cur-node-3))) raises "Invalid movement" 
+end
+
+check "Right works correctly, erroring when a node has no siblings.":
+  # cursor in tree-1 moves from node 2 to node 3.
+  get-node-val(
+    right(cur-node-2)) is get-node-val(cur-node-3)
+
+  # Tree 2 has a subnode of root 3 & a subnode of root 2. We move from latter to former.
+  get-node-val(right(cur-subnode-2)) is get-node-val(cur-subnode-3)
+
+  # Cursor can't move right when tree resembles vertical list:
+  get-node-val(
+    right(cur-no-siblings)) raises "Invalid movement"
+
+  # testing a double right, which should fail (no more sibling nodes):
+  get-node-val(
+    right(right(cur-node-2))) raises "Invalid movement" 
+end
+
+check "Down works correctly for simple & more complex cases":
+  # Simplest case: can we move down a tree resembling a vertical list?
+  get-node-val(
+    down(cur-no-siblings, 0)) is 
+  get-node-val(
+    find-cursor(tree-list-1234, lam(x): x == 3 end)) 
+
+  # A more complex case: when we move down a layer, left & right children should change.
+  get-node-val(
+    down(cur-deep-tree-row-1, 1)) is 
+  get-node-val(
+    cur-deep-tree-row-2)
+
+  get-node-val(
+    down(cur-deep-tree-row-1, 2)) is 
+  some(6)
+end
+
+check "Down errors when we're at a leaf node without children, or if we search for a child whose index doesn't exist (e.g. too big / negative number)":
+  # If we're at a leaf node, we can't move down anymore.
+  cur-no-children = find-cursor(tree-list-1234, lam(x): x == 4 end)
+  get-node-val(down(cur-no-children, 0)) raises "Invalid movement"
+
+  # We search for a child node of index that doesn't exist.
+  get-node-val(
+    down(cur-deep-tree-row-1, 100050)) raises "Invalid movement"
+  get-node-val(
+    down(cur-deep-tree-row-1, -100)) raises "Invalid movement"
+end
+
+check "Up works in normal cases, erroring when cursor is at uppermost root.":
+  # cursor-list-at-2 points at 2nd element of tree resembling vertical list.
+  # Simplest case: can we move up a tree resembling a vertical list?
+  get-node-val(
+    up(cur-no-siblings)) is 
+  get-node-val(
+    find-cursor(tree-list-1234, lam(x): x == 1 end)) 
+
+  get-node-val(
+    up(cur-deep-tree-row-2)) is 
+  get-node-val(
+    cur-deep-tree-row-1)
+
+  # If we're at the root, we can't move up anymore:
+  get-node-val(
+    up(
+      find-cursor(tree-list-1234, lam(x): x == 1 end))) 
+    raises "Invalid movement"
+end
+
+#//////// CHECKING UPDATE /////////
+check:
+  
+  # deletes node at cursor:
+  cur-left-child = find-cursor(tree-1, lam(x): x == 2 end)
+  to-tree(
+    update(
+      cur-left-child, delete)) is
+  node(1, [list: node(3, empty)])
+
+  # moves cursor to the right & deletes node: 
+  to-tree(
+    update(
+      right(cur-left-child), delete)) is
+  node(1, [list: node(2, empty)])
+
+  # replaces a node with a leaf
+  to-leaf = lam(node-1): node(node-1.value, empty) end
+  
+  to-tree(
+    update(cur-no-siblings, to-leaf)) is
+  node(1, [list: node(2, empty)])
+
+  # gives the node many extraneous mt children, and then, in to-tree, cleans up those mts.
+  mt-multiplier = lam(node2): node(node2.value, [list: mt, mt, mt, mt]) end
+  
+  #|to-tree(
+    update(cur-no-siblings, mt-multiplier)) is cur-no-siblings
+  |#
+end
+#|
+  replace node with subtree
+  replace node with empty
+  update w invalid mvmt
+   end
+|#
